@@ -79,6 +79,81 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  void _showAddProductDialog(BuildContext context) {
+    final nameController = TextEditingController();
+    final subtitleController = TextEditingController();
+    final priceController = TextEditingController();
+    String selectedCat = 'Hardware';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text('Tambah Produk Baru', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Nama Produk'),
+                  ),
+                  TextField(
+                    controller: subtitleController,
+                    decoration: const InputDecoration(labelText: 'Deskripsi Singkat'),
+                  ),
+                  TextField(
+                    controller: priceController,
+                    decoration: const InputDecoration(labelText: 'Harga (Rp)'),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedCat,
+                    decoration: const InputDecoration(labelText: 'Kategori'),
+                    items: ['Hardware', 'Aksesoris']
+                        .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) setState(() => selectedCat = val);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E4D3B),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  if (nameController.text.isNotEmpty && priceController.text.isNotEmpty) {
+                    final price = double.tryParse(priceController.text) ?? 0.0;
+                    Provider.of<ProductProvider>(context, listen: false).addProduct(
+                      nameController.text,
+                      subtitleController.text,
+                      price,
+                      selectedCat,
+                    );
+                    Navigator.pop(ctx);
+                  }
+                },
+                child: const Text('Simpan', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final productProvider = Provider.of<ProductProvider>(context);
@@ -196,6 +271,11 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF1E4D3B),
+        onPressed: () => _showAddProductDialog(context),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

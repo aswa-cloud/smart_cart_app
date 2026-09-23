@@ -1,116 +1,84 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../helpers/db_helper.dart';
 import '../models/product_model.dart';
 
 class CartItem {
+  final String id;
   final ProductModel product;
   int quantity;
 
-  CartItem({required this.product, this.quantity = 1});
+  CartItem({
+    required this.id,
+    required this.product,
+    required this.quantity,
+  });
 }
 
 class CartProvider with ChangeNotifier {
-  final List<CartItem> _items = [];
-
-  CartProvider() {
-    _loadCartFromStorage();
-  }
+  List<CartItem> _items = [];
+  final DBHelper _dbHelper = DBHelper();
 
   List<CartItem> get items => _items;
 
   int get totalItemsCount {
-    int total = 0;
-    for (var item in _items) {
-      total += item.quantity;
-    }
-    return total;
+    return _items.fold(0, (sum, item) => sum + item.quantity);
   }
 
   double get totalPrice {
-    double total = 0.0;
-    for (var item in _items) {
-      total += item.product.price * item.quantity;
-    }
-    return total;
+    return _items.fold(0.0, (sum, item) => sum + (item.product.price * item.quantity));
   }
 
-  // Menyimpan data keranjang belanja ke HP
-  Future<void> _saveCartToStorage() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<Map<String, dynamic>> cartData = _items.map((item) {
-      return {
-        'id': item.product.id,
-        'name': item.product.name,
-        'subtitle': item.product.subtitle,
-        'price': item.product.price,
-        'category': item.product.category,
-        'imagePath': item.product.imagePath,
-        'quantity': item.quantity,
-      };
+  Future<void> fetchAndSetCart() async {
+    final dataList = await _dbHelper.getCartItems();
+    _items = dataList.map((map) {
+      return CartItem(
+        id: map['id'],
+        product: ProductModel(
+          id: map['product_id'],
+          name: map['name'],
+          subtitle: map['subtitle'] ?? '',
+          price: (map['price'] as num).toDouble(),
+          category: map['category'] ?? '',
+          imagePath: map['image_path'],
+        ),
+        quantity: map['quantity'],
+      );
     }).toList();
-
-    await prefs.setString('saved_cart', jsonEncode(cartData));
+    notifyListeners();
   }
 
-  // Memuat data keranjang belanja dari HP saat aplikasi dibuka
-  Future<void> _loadCartFromStorage() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedData = prefs.getString('saved_cart');
-    if (savedData != null) {
-      final List<dynamic> decoded = jsonDecode(savedData);
-      _items.clear();
-      for (var item in decoded) {
-        _items.add(
-          CartItem(
-            product: ProductModel(
-              id: item['id'],
-              name: item['name'],
-              subtitle: item['subtitle'],
-              price: (item['price'] as num).toDouble(),
-              category: item['category'],
-              imagePath: item['imagePath'],
-            ),
-            quantity: item['quantity'],
-          ),
-        );
-      }
-      notifyListeners();
-    }
-  }
-
-  void addToCart(ProductModel product) {
+  Future<void> addToCart(ProductModel product) async {
     final index = _items.indexWhere((item) => item.product.id == product.id);
     if (index >= 0) {
-      _items[index].quantity++;
+      final newQty = _items[index].quantity + 1;
+      await _dbHelper.updateCartQuantity(_items[index].id, newQty);
     } else {
-      _items.add(CartItem(product: product));
+      final cartId = DateTime.now().millisecondsSinceEpoch.toString();
+      final cartMap = {
+        'id': cartId,
+        'product_id': product.id,
+        'name': product.name,
+        'subtitle': product.subtitle,
+        'price': product.price,
+        'category': product.category,
+        'image_path': product.imagePath,
+        'quantity': 1,
+      };
+      await _dbHelper.insertCart(cartMap);
     }
-    _saveCartToStorage();
-    notifyListeners();
+    await fetchAndSetCart();
   }
 
-  void removeFromCart(String productId) {
-    _items.removeWhere((item) => item.product.id == productId);
-    _saveCartToStorage();
-    notifyListeners();
-  }
-
-  void updateQuantity(String productId, int delta) {
+  Future<void> updateQuantity(String productId, int delta) async {
     final index = _items.indexWhere((item) => item.product.id == productId);
     if (index >= 0) {
-      _items[index].quantity += delta;
-      if (_items[index].quantity <= 0) {
-        _items.removeAt(index);
+      final newQty = _items[index].quantity + delta;
+      if (newQty <= 0) {
+        await _dbHelper.deleteCartItem(_items[index].id);
+      } else {
+        await _dbHelper.updateCartQuantity(_items[index].id, newQty);
       }
-      _saveCartToStorage();
-      notifyListeners();
+      await fetchAndSetCart();
     }
-  }
-
-  void clearCart() {
-    _items.clear();
-    _saveCartToStorage();
-    notifyListeners();
   }
 }

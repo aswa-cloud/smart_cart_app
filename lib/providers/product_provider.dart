@@ -1,48 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../helpers/db_helper.dart';
 import '../models/product_model.dart';
 
 class ProductProvider with ChangeNotifier {
-  final List<ProductModel> _products = [
-    ProductModel(
-      id: '1',
-      name: 'Laptop RPL Pro',
-      subtitle: 'Core i7 · 16GB RAM',
-      price: 12500000,
-      category: 'Hardware',
-    ),
-    ProductModel(
-      id: '2',
-      name: 'Mouse Wireless',
-      subtitle: 'Ergonomic Silent Click',
-      price: 250000,
-      category: 'Aksesoris',
-    ),
-    ProductModel(
-      id: '3',
-      name: 'Keyboard Mechanical',
-      subtitle: 'RGB Green Switch',
-      price: 750000,
-      category: 'Aksesoris',
-    ),
-  ];
-
+  List<ProductModel> _allProducts = [];
   String _selectedCategory = 'Semua';
   String _searchQuery = '';
+  final DBHelper _dbHelper = DBHelper();
 
-  ProductProvider() {
-    _loadSavedImages();
-  }
+  String get selectedCategory => _selectedCategory;
 
   List<ProductModel> get products {
-    return _products.where((product) {
+    return _allProducts.where((product) {
       final matchesCategory = _selectedCategory == 'Semua' || product.category == _selectedCategory;
       final matchesSearch = product.name.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     }).toList();
   }
 
-  String get selectedCategory => _selectedCategory;
+  Future<void> fetchAndSetProducts() async {
+    final dataList = await _dbHelper.getProducts();
+    _allProducts = dataList.map((item) => ProductModel.fromMap(item)).toList();
+
+    if (_allProducts.isEmpty) {
+      final defaultProducts = [
+        ProductModel(id: '1', name: 'Laptop RPL Pro', subtitle: 'Core i7 · 16GB RAM', price: 12500000, category: 'Hardware'),
+        ProductModel(id: '2', name: 'Mouse Wireless', subtitle: 'Ergonomic Silent Click', price: 250000, category: 'Aksesoris'),
+        ProductModel(id: '3', name: 'Keyboard Mechanical', subtitle: 'RGB Green Switch', price: 750000, category: 'Aksesoris'),
+      ];
+      for (var p in defaultProducts) {
+        await _dbHelper.insertProduct(p.toMap());
+      }
+      final updatedList = await _dbHelper.getProducts();
+      _allProducts = updatedList.map((item) => ProductModel.fromMap(item)).toList();
+    }
+    notifyListeners();
+  }
 
   void setCategory(String category) {
     _selectedCategory = category;
@@ -54,42 +47,20 @@ class ProductProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Memuat foto produk yang tersimpan di memori HP
-  Future<void> _loadSavedImages() async {
-    final prefs = await SharedPreferences.getInstance();
-    for (int i = 0; i < _products.length; i++) {
-      final savedPath = prefs.getString('product_image_${_products[i].id}');
-      if (savedPath != null) {
-        _products[i] = ProductModel(
-          id: _products[i].id,
-          name: _products[i].name,
-          subtitle: _products[i].subtitle,
-          price: _products[i].price,
-          category: _products[i].category,
-          imagePath: savedPath,
-        );
-      }
-    }
-    notifyListeners();
+  Future<void> updateProductImage(String productId, String imagePath) async {
+    await _dbHelper.updateProductImage(productId, imagePath);
+    await fetchAndSetProducts();
   }
 
-  // Menyimpan lokasi foto produk secara permanen
-  Future<void> updateProductImage(String productId, String imagePath) async {
-    final index = _products.indexWhere((p) => p.id == productId);
-    if (index >= 0) {
-      final oldProduct = _products[index];
-      _products[index] = ProductModel(
-        id: oldProduct.id,
-        name: oldProduct.name,
-        subtitle: oldProduct.subtitle,
-        price: oldProduct.price,
-        category: oldProduct.category,
-        imagePath: imagePath,
-      );
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('product_image_$productId', imagePath);
-      notifyListeners();
-    }
+  Future<void> addProduct(String name, String subtitle, double price, String category) async {
+    final newProduct = ProductModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      subtitle: subtitle,
+      price: price,
+      category: category,
+    );
+    await _dbHelper.insertProduct(newProduct.toMap());
+    await fetchAndSetProducts();
   }
 }

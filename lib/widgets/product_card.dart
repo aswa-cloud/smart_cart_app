@@ -14,50 +14,40 @@ class ProductCard extends StatelessWidget {
     required this.onImageTap,
   }) : super(key: key);
 
+  String _formatRupiah(double value) {
+    return 'Rp ${value.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Row(
         children: [
-          // Ketuk area gambar untuk memilih foto dari Galeri/Kamera HP
           GestureDetector(
             onTap: onImageTap,
             child: Container(
               width: 75,
               height: 75,
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: const Color(0xFFEFEFEF),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Center(
-                child: product.imagePath != null && File(product.imagePath!).existsSync()
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(
-                          File(product.imagePath!),
-                          fit: BoxFit.contain,
-                        ),
-                      )
-                    : const Icon(
-                        Icons.image_outlined,
-                        size: 32,
-                        color: Colors.grey,
+              child: product.imagePath != null && File(product.imagePath!).existsSync()
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        File(product.imagePath!),
+                        fit: BoxFit.cover,
                       ),
-              ),
+                    )
+                  : const Icon(Icons.laptop_mac, color: Colors.grey, size: 32),
             ),
           ),
           const SizedBox(width: 14),
@@ -67,48 +57,33 @@ class ProductCard extends StatelessWidget {
               children: [
                 Text(
                   product.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: Colors.black,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   product.subtitle,
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 11,
-                  ),
+                  style: const TextStyle(color: Colors.grey, fontSize: 11),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Rp ${product.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: Colors.black,
-                  ),
+                  _formatRupiah(product.price),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
           ),
-          InkWell(
+          GestureDetector(
             onTap: onAddToCart,
-            borderRadius: BorderRadius.circular(30),
             child: Container(
-              padding: const EdgeInsets.all(10),
+              width: 42,
+              height: 42,
               decoration: const BoxDecoration(
                 color: Color(0xFF1E4D3B),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.add,
-                color: Colors.white,
-                size: 18,
-              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 22),
             ),
-          ),
+          )
         ],
       ),
     );
